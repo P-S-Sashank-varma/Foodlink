@@ -5,9 +5,9 @@ const DonationForm = () => {
         name: '',
         foodItem: '',
         quantity: '',
-        latitude: '',  // New field
-        longitude: '', // New field
-        location: '',  // New field
+        latitude: '',  
+        longitude: '', 
+        location: '',  
     });
 
     const [loading, setLoading] = useState(false);
@@ -21,19 +21,17 @@ const DonationForm = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setLoading(true); // Start loading
-        setError(''); // Reset any previous errors
-        setSuccess(''); // Reset success message
+        setLoading(true); 
+        setError(''); 
+        setSuccess(''); 
 
         try {
-            // Validate quantity to be a positive number
             if (formData.quantity <= 0) {
                 setError('Quantity must be greater than zero.');
                 setLoading(false);
                 return;
             }
 
-            // Validate location and coordinates (you can modify this based on your requirements)
             if (!formData.latitude || !formData.longitude || !formData.location) {
                 setError('Location details are required.');
                 setLoading(false);
@@ -58,7 +56,7 @@ const DonationForm = () => {
             console.error('Error:', error);
             setError('An error occurred. Please try again.');
         } finally {
-            setLoading(false); // Stop loading
+            setLoading(false); 
         }
     };
 

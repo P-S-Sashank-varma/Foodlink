@@ -23,12 +23,11 @@ const Login = ({ handleUserLogin }) => {
 
       const data = await response.json();
 
-      if (data.message === 'Login successful') {
-        const userToken = data.token;  
-        console.log('Token received:', userToken);
-        localStorage.setItem('authToken', userToken);  
+      if (data.token) {
+        console.log('Token received:', data.token);
+        localStorage.setItem('token', data.token);  // ✅ Storing the token correctly
         alert('Login Successful');
-        handleUserLogin(userToken);  
+        handleUserLogin(data.token);  
       } else {
         alert('Login failed: ' + data.message);
       }

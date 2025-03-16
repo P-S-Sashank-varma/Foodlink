@@ -3,14 +3,14 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');  
-const app = express();
+const jwt = require('jsonwebtoken');
 
+const app = express();
 dotenv.config();
 
 const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO_URI;
-console.log('JWT_SECRET:', process.env.JWT_SECRET); 
+console.log('JWT_SECRET:', process.env.JWT_SECRET);
 
 // Middleware
 app.use(express.json());
@@ -27,6 +27,16 @@ const connectDB = async () => {
 };
 connectDB();
 
+// User Schema
+const User = mongoose.model('User', new mongoose.Schema({
+  username: { type: String, required: true, unique: true },
+  email: { type: String, required: true, unique: true },
+  password: { type: String, required: true },
+  donationsMade: { type: Number, default: 0 }, // ✅ Added missing field
+  claimedDonations: { type: Number, default: 0 } // ✅ Added missing field
+}));
+
+// Donation Schema
 const Donation = mongoose.model('Donation', new mongoose.Schema({
   name: { type: String, required: true },
   foodItem: { type: String, required: true },
@@ -37,19 +47,14 @@ const Donation = mongoose.model('Donation', new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
   claimed: { type: Boolean, default: false },
   claimedBy: { type: String, default: null },
-}));
-
-const User = mongoose.model('User', new mongoose.Schema({
-  username: { type: String, required: true, unique: true },
-  email: { type: String, required: true, unique: true },
-  password: { type: String, required: true },
+  donatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
 }));
 
 app.get('/', (req, res) => {
   res.send('FoodLink Backend is running!');
 });
 
-
+// User Signup
 app.post('/api/signup', async (req, res) => {
   const { username, email, password } = req.body;
   try {
@@ -66,7 +71,7 @@ app.post('/api/signup', async (req, res) => {
   }
 });
 
-// Login route
+// User Login
 app.post('/api/login', async (req, res) => {
   const { email, password } = req.body;
   try {
@@ -78,11 +83,9 @@ app.post('/api/login', async (req, res) => {
 
     const token = jwt.sign(
       { userId: user._id, username: user.username },
-      process.env.JWT_SECRET, 
-
-      { expiresIn: '1h' } 
+      process.env.JWT_SECRET,
+      { expiresIn: '1h' }
     );
-
 
     res.status(200).json({
       message: 'Login successful',
@@ -95,36 +98,33 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
+// Create Donation
 app.post('/api/donate', async (req, res) => {
-  const { name, foodItem, quantity, location, phoneNumber, address } = req.body;
-
-  if (!name || !foodItem || !quantity || !location || !phoneNumber || !address) {
-    return res.status(400).json({ message: 'All fields are required.' });
-  }
-
-  const parsedQuantity = parseInt(quantity, 10);
-  if (isNaN(parsedQuantity)) {
-    return res.status(400).json({ message: 'Invalid data type for quantity.' });
-  }
-
-  const newDonation = new Donation({
-    name,
-    foodItem,
-    quantity: parsedQuantity,
-    location,
-    phoneNumber,
-    address,
-  });
-
   try {
-    const savedDonation = await newDonation.save();
-    res.status(201).json({ message: 'Donation saved successfully!', donation: savedDonation });
+    const { name, foodItem, quantity, location, phoneNumber, address } = req.body;
+    const token = req.headers.authorization?.split(' ')[1];
+
+    if (!token) return res.status(401).json({ message: 'Unauthorized: No token provided' });
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const userId = decoded.userId; // ✅ Fixed JWT payload extraction
+
+    if (!name || !foodItem || !quantity || !location || !phoneNumber || !address) {
+      return res.status(400).json({ message: 'All fields are required.' });
+    }
+
+    const newDonation = new Donation({ name, foodItem, quantity, location, phoneNumber, address, donatedBy: userId });
+    await newDonation.save();
+
+    await User.findByIdAndUpdate(userId, { $inc: { donationsMade: 1 } });
+
+    res.status(201).json({ message: 'Donation saved successfully!' });
   } catch (error) {
-    console.error('Error Saving Donation:', error);
     res.status(500).json({ message: 'Failed to save donation', error: error.message });
   }
 });
 
+// Fetch All Donations
 app.get('/api/donations', async (req, res) => {
   try {
     const donations = await Donation.find();
@@ -134,134 +134,67 @@ app.get('/api/donations', async (req, res) => {
   }
 });
 
-// Claim donation route
+// Claim Donation
 app.post('/api/claim', async (req, res) => {
-  const { donationId, recipientName } = req.body;
-
-  if (!donationId || !recipientName) {
-    return res.status(400).json({ message: 'Donation ID and recipient name are required.' });
-  }
-
   try {
+    const { donationId } = req.body;
+    const token = req.headers.authorization?.split(' ')[1];
+
+    if (!token) return res.status(401).json({ message: 'Unauthorized: No token provided' });
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const userId = decoded.userId;
+
+    console.log('✅ User ID:', userId);
+    console.log('✅ Donation ID:', donationId);
+
     const donation = await Donation.findById(donationId);
-
-    if (!donation) {
-      return res.status(404).json({ message: 'Donation not found.' });
-    }
-
-    if (donation.claimed) {
-      return res.status(400).json({ message: 'Donation already claimed.' });
-    }
+    if (!donation) return res.status(404).json({ message: 'Donation not found' });
+    if (donation.claimed) return res.status(400).json({ message: 'Donation already claimed' });
 
     donation.claimed = true;
-    donation.claimedBy = recipientName;
+    donation.claimedBy = userId;
+
     await donation.save();
 
-    res.status(200).json({ message: 'Donation successfully claimed!' });
+    await User.findByIdAndUpdate(userId, { $inc: { claimedDonations: 1 } });
+
+    res.status(200).json({ message: 'Donation claimed successfully!' });
   } catch (error) {
-    console.error('Error claiming donation:', error);
-    res.status(500).json({ message: 'Server error. Please try again later.' });
+    console.error('🔥 Claim Donation Error:', error);
+    res.status(500).json({ message: 'Failed to claim donation', error: error.message });
   }
 });
 
-
-// Fetch donations by donor (donor's history)
-app.get('/api/donations/by-donor/:donorName', async (req, res) => {
-  const { donorName } = req.params;
-
+// Get Stats
+app.get('/api/stats', async (req, res) => {
   try {
-    const donations = await Donation.find({ name: donorName });
-    if (!donations.length) {
-      return res.status(404).json({ message: 'No donations found for this donor.' });
-    }
-    res.status(200).json(donations);
+    const totalDonations = await Donation.countDocuments({});
+    const claimedDonations = await Donation.countDocuments({ claimed: true });
+    res.json({ totalDonations, claimedDonations });
   } catch (error) {
-    console.error('Error fetching donor donations:', error);
-    res.status(500).json({ message: 'Internal server error.' });
+    res.status(500).json({ message: 'Error fetching stats' });
   }
 });
+app.get('/api/user/info', async (req, res) => {
+  const token = req.headers.authorization?.split(' ')[1];
 
-// Update a donation (for CRUD operations)
-app.put('/api/donations/:donationId', async (req, res) => {
-  const { donationId } = req.params;
-  const updateData = req.body;
+  if (!token) return res.status(403).json({ message: 'No token provided' });
 
   try {
-    const donation = await Donation.findById(donationId);
-    if (!donation) {
-      return res.status(404).json({ message: 'Donation not found.' });
-    }
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findById(decoded.userId);
 
-    if (donation.claimed) {
-      return res.status(400).json({ message: 'Cannot update a claimed donation.' });
-    }
+    if (!user) return res.status(404).json({ message: 'User not found' });
 
-    Object.keys(updateData).forEach((key) => {
-      if (key in donation) {
-        donation[key] = updateData[key];
-      }
+    res.status(200).json({ 
+      username: user.username, 
+      email: user.email,
+      donationsMade: user.donationsMade || 0,  // Ensure default value if not present
+      claimedDonations: user.claimedDonations || 0
     });
-
-    const updatedDonation = await donation.save();
-    res.status(200).json({ message: 'Donation updated successfully!', donation: updatedDonation });
   } catch (error) {
-    console.error('Error updating donation:', error);
-    res.status(500).json({ message: 'Internal server error.' });
-  }
-});
-
-// Delete a donation
-app.delete('/api/donations/:donationId', async (req, res) => {
-  const { donationId } = req.params;
-
-  try {
-    const donation = await Donation.findById(donationId);
-    if (!donation) {
-      return res.status(404).json({ message: 'Donation not found.' });
-    }
-
-    if (donation.claimed) {
-      return res.status(400).json({ message: 'Cannot delete a claimed donation.' });
-    }
-
-    await donation.remove();
-    res.status(200).json({ message: 'Donation deleted successfully!' });
-  } catch (error) {
-    console.error('Error deleting donation:', error);
-    res.status(500).json({ message: 'Internal server error.' });
-  }
-});
-
-// Fetch filtered donations (recipient dashboard filtering)
-app.get('/api/donations/filter', async (req, res) => {
-  const { location, foodItem } = req.query;
-
-  const filter = {};
-  if (location) filter.location = location;
-  if (foodItem) filter.foodItem = foodItem;
-
-  try {
-    const donations = await Donation.find({ ...filter, claimed: false });
-    res.status(200).json(donations);
-  } catch (error) {
-    console.error('Error filtering donations:', error);
-    res.status(500).json({ message: 'Internal server error.' });
-  }
-});
-
-// Matching system: Get nearby unclaimed donations
-app.get('/api/matching-donations', async (req, res) => {
-  const { location } = req.query;
-
-  try {
-    const donations = await Donation.find({ location, claimed: false });
-    if (!donations.length) {
-      return res.status(404).json({ message: 'No matching donations found in this location.' });
-    }
-    res.status(200).json(donations);
-  } catch (error) {
-    console.error('Error fetching matching donations:', error);
-    res.status(500).json({ message: 'Internal server error.' });
+    res.status(500).json({ message: 'Failed to authenticate token', error: error.message });
   }
 });
 

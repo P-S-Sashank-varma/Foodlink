@@ -62,34 +62,44 @@ const Request = () => {
   // Handle donation claim
   const claimDonation = async (donationId) => {
     const recipientName = prompt('Enter your name to claim the donation:');
-
+  
     if (!recipientName) {
       alert('You must enter a name to claim the donation.');
       return;
     }
-
+  
     try {
+      const token = localStorage.getItem('token');  // ✅ Ensure token is included
+      if (!token) {
+        alert('Unauthorized: No token found');
+        return;
+      }
+  
       const response = await fetch('http://localhost:5000/api/claim', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`  // ✅ Pass token correctly
         },
         body: JSON.stringify({ donationId, recipientName }),
       });
+  
       const data = await response.json();
-
+      console.log('🔍 Claim Response:', data);  // ✅ Log response
+  
       if (response.status === 200) {
         alert(data.message);
-        // Refetch donations after claiming
-        fetchDonations();
+        fetchDonations();  // ✅ Refresh donations after claiming
       } else {
-        alert(data.message);
+        alert(`Error: ${data.message}`);
       }
     } catch (error) {
-      console.error('Error claiming donation:', error);
+      console.error('🔥 Error claiming donation:', error);
       alert('There was an error claiming the donation.');
     }
   };
+  
+  
 
   if (loading) {
     return <div className="text-center text-xl font-semibold">Loading donations...</div>;

@@ -43,7 +43,7 @@ const Donate = () => {
     if (!token) return;
 
     try {
-      const response = await fetch('http://localhost:5000/api/user/info', {
+      const response = await fetch('https://foodlink-1.onrender.com/api/user/info', {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -62,7 +62,7 @@ const Donate = () => {
 
   const fetchStats = useCallback(async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/stats');
+      const response = await fetch('https://foodlink-1.onrender.com/api/stats');
       const data = await response.json();
       if (response.ok) {
         setStats(data);
@@ -93,7 +93,7 @@ const Donate = () => {
     setLoading(true);
 
     try {
-      const response = await fetch('http://localhost:5000/api/donate', {
+      const response = await fetch('https://foodlink-1.onrender.com/api/donate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

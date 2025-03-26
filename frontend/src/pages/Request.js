@@ -11,7 +11,7 @@ const Request = () => {
 
   const fetchDonations = useCallback(async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/donations');
+      const response = await fetch('https://foodlink-1.onrender.com/api/donations');
       const data = await response.json();
 
       console.log('Fetched donations data:', data);
@@ -90,7 +90,7 @@ const Request = () => {
         return;
       }
 
-      const response = await fetch('http://localhost:5000/api/claim', {
+      const response = await fetch('https://foodlink-1.onrender.com/api/claim', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

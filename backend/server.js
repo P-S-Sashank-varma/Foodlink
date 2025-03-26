@@ -32,12 +32,12 @@ const User = mongoose.model('User', new mongoose.Schema({
   username: { type: String, required: true, unique: true },
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
-  donationsMade: { type: Number, default: 0 }, // ✅ Added missing field
-  claimedDonations: { type: Number, default: 0 } // ✅ Added missing field
+  donationsMade: { type: Number, default: 0 },
+  claimedDonations: { type: Number, default: 0 }
 }));
 
-// Donation Schema
-const Donation = mongoose.model('Donation', new mongoose.Schema({
+// Unclaimed Donations Schema
+const UnclaimedDonation = mongoose.model('UnclaimedDonation', new mongoose.Schema({
   name: { type: String, required: true },
   foodItem: { type: String, required: true },
   quantity: { type: Number, required: true },
@@ -45,9 +45,22 @@ const Donation = mongoose.model('Donation', new mongoose.Schema({
   phoneNumber: { type: String, required: true },
   address: { type: String, required: true },
   createdAt: { type: Date, default: Date.now },
-  claimed: { type: Boolean, default: false },
-  claimedBy: { type: String, default: null },
   donatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+}));
+
+
+
+// Claimed Donations Schema
+const ClaimedDonation = mongoose.model('ClaimedDonation', new mongoose.Schema({
+  name: { type: String, required: true },
+  foodItem: { type: String, required: true },
+  quantity: { type: Number, required: true },
+  location: { type: String, required: true },
+  phoneNumber: { type: String, required: true },
+  address: { type: String, required: true },
+  createdAt: { type: Date, default: Date.now },
+  claimedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  donatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
 }));
 
 app.get('/', (req, res) => {
@@ -93,41 +106,48 @@ app.post('/api/login', async (req, res) => {
       username: user.username
     });
   } catch (error) {
-    console.error('Error logging in:', error);
     res.status(500).json({ message: 'Internal server error' });
   }
 });
 
 // Create Donation
+// Create Donation
 app.post('/api/donate', async (req, res) => {
   try {
     const { name, foodItem, quantity, location, phoneNumber, address } = req.body;
     const token = req.headers.authorization?.split(' ')[1];
-
+    
     if (!token) return res.status(401).json({ message: 'Unauthorized: No token provided' });
-
+    
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const userId = decoded.userId; // ✅ Fixed JWT payload extraction
+    const userId = decoded.userId;
 
-    if (!name || !foodItem || !quantity || !location || !phoneNumber || !address) {
-      return res.status(400).json({ message: 'All fields are required.' });
-    }
+    const newDonation = new UnclaimedDonation({ 
+      name, 
+      foodItem, 
+      quantity, 
+      location, 
+      phoneNumber, 
+      address, 
+      donatedBy: userId,
+      createdAt: new Date()  // ✅ Adds date and time
+    });
 
-    const newDonation = new Donation({ name, foodItem, quantity, location, phoneNumber, address, donatedBy: userId });
     await newDonation.save();
 
     await User.findByIdAndUpdate(userId, { $inc: { donationsMade: 1 } });
 
-    res.status(201).json({ message: 'Donation saved successfully!' });
+    res.status(201).json({ message: 'Donation saved successfully!', donation: newDonation });
   } catch (error) {
     res.status(500).json({ message: 'Failed to save donation', error: error.message });
   }
 });
 
-// Fetch All Donations
+
+// Fetch All Unclaimed Donations
 app.get('/api/donations', async (req, res) => {
   try {
-    const donations = await Donation.find();
+    const donations = await UnclaimedDonation.find();
     res.status(200).json(donations);
   } catch (error) {
     res.status(500).json({ message: 'Internal server error' });
@@ -139,43 +159,42 @@ app.post('/api/claim', async (req, res) => {
   try {
     const { donationId } = req.body;
     const token = req.headers.authorization?.split(' ')[1];
-
     if (!token) return res.status(401).json({ message: 'Unauthorized: No token provided' });
-
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const userId = decoded.userId;
 
-    console.log('✅ User ID:', userId);
-    console.log('✅ Donation ID:', donationId);
-
-    const donation = await Donation.findById(donationId);
+    const donation = await UnclaimedDonation.findById(donationId);
     if (!donation) return res.status(404).json({ message: 'Donation not found' });
-    if (donation.claimed) return res.status(400).json({ message: 'Donation already claimed' });
 
-    donation.claimed = true;
-    donation.claimedBy = userId;
-
-    await donation.save();
+    await UnclaimedDonation.findByIdAndDelete(donationId);
+    const claimedDonation = new ClaimedDonation({ ...donation.toObject(), claimedBy: userId });
+    await claimedDonation.save();
 
     await User.findByIdAndUpdate(userId, { $inc: { claimedDonations: 1 } });
-
     res.status(200).json({ message: 'Donation claimed successfully!' });
   } catch (error) {
-    console.error('🔥 Claim Donation Error:', error);
     res.status(500).json({ message: 'Failed to claim donation', error: error.message });
   }
 });
 
-// Get Stats
 app.get('/api/stats', async (req, res) => {
   try {
-    const totalDonations = await Donation.countDocuments({});
-    const claimedDonations = await Donation.countDocuments({ claimed: true });
-    res.json({ totalDonations, claimedDonations });
+    const claimedDonations = await ClaimedDonation.countDocuments();
+    const unclaimedDonations = await UnclaimedDonation.countDocuments();
+
+    const totalDonations = claimedDonations + unclaimedDonations;
+
+    res.json({ totalDonations, claimedDonations, unclaimedDonations });
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching stats' });
+    console.error("Error fetching stats:", error);
+    res.status(500).json({ message: 'Error fetching stats', error: error.message });
   }
 });
+
+
+
+
+
 app.get('/api/user/info', async (req, res) => {
   const token = req.headers.authorization?.split(' ')[1];
 
@@ -197,6 +216,8 @@ app.get('/api/user/info', async (req, res) => {
     res.status(500).json({ message: 'Failed to authenticate token', error: error.message });
   }
 });
+
+
 
 
 app.listen(PORT, () => {

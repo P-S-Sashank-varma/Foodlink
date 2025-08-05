@@ -29,8 +29,10 @@ Frontend: React.js, Tailwind CSS
 Backend: Node.js, Express.js
 
 Database: MongoDB
+<img width="1885" height="862" alt="Screenshot (81)" src="https://github.com/user-attachments/assets/ad091549-d00d-484d-9ca9-f20eb17b856b" />
 
 Authentication: JWT
 
 Deployment: Vercel (Frontend), Render/Heroku (Backend)
+
 

@@ -1,6 +1,4 @@
-<img width="1903" height="871" alt="Screenshot (67)" src="https://github.com/user-attachments/assets/67a1a5fc-045a-4c3f-85ee-4148e46df5fe" />
-<img width="1907" height="884" alt="Screenshot (66)" src="https://github.com/user-attachments/assets/af10c753-242d-4ff7-bd43-684a7ebb9df7" />
-<img width="1920" height="875" alt="Screenshot (65)" src="https://github.com/user-attachments/assets/f4518933-15df-4f92-a7c6-b57dfa5440a0" />
+
 🍱 FoodLink – Bridging Food Surplus with Hunger
 FoodLink is a real-world web application built using the MERN stack that connects restaurants, households, and stores with NGOs and individuals in need of food. The platform aims to minimize food wastage while helping the underprivileged.
 
@@ -38,6 +36,8 @@ Authentication: JWT
 Deployment: Vercel (Frontend), Render/Heroku (Backend)
 
 <img width="1885" height="862" alt="Screenshot (81)" src="https://github.com/user-attachments/assets/ad091549-d00d-484d-9ca9-f20eb17b856b" />
+
+<img width="1920" height="875" alt="Screenshot (65)" src="https://github.com/user-attachments/assets/f4518933-15df-4f92-a7c6-b57dfa5440a0" />
 <img width="1903" height="871" alt="Screenshot (67)" src="https://github.com/user-attachments/assets/3124b9be-b8b5-46cc-904c-1aacc8ce2218" />
 <img width="1907" height="884" alt="Screenshot (66)" src="https://github.com/user-attachments/assets/e6d6e0ca-c120-45b0-8018-07be5b2ab319" />
 

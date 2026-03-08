@@ -13,7 +13,7 @@ const Login = ({ handleUserLogin }) => {
     setIsLoading(true);
     
     try {
-      const response = await fetch('https://foodlink-1.onrender.com/api/login', {
+      const response = await fetch('http://localhost:5000/api/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -172,7 +172,7 @@ const Login = ({ handleUserLogin }) => {
           transition={{ delay: 0.7, duration: 0.5 }}
         >
           Don't have an account?{' '}
-          <a href="#" className="font-medium text-black hover:text-gray-800 transition-colors">
+          <a href="/signup" className="font-medium text-black hover:text-gray-800 transition-colors">
             Sign up
           </a>
         </motion.p>
